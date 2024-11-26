@@ -1,19 +1,20 @@
 import { test, expect } from '@playwright/test';
 
+// Helper function to generate a unique username
 function generateUniqueUsername() {
   return `user_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 }
 
-test.describe('Parabank Registration Tests', () => {
-  test('should register a new user with unique credentials', async ({ page }) => {
-    // Navigate to the registration page
-    await page.goto('https://parabank.parasoft.com/parabank/register.htm');
+test.describe('Parabank Tests', () => {
+  let uniqueUsername: string;
+  const password = 'Test@123';
+  const baseUrl = 'https://parabank.parasoft.com/parabank';
 
-    // Generate unique credentials
-    const uniqueUsername = generateUniqueUsername();
-    const password = 'Test@123';
+  test('1. Register a new user', async ({ page }) => {
+    uniqueUsername = generateUniqueUsername(); // Generate unique username
+    await page.goto(`${baseUrl}/register.htm`);
 
-    // Fill out the form
+    // Fill out the registration form
     await page.fill('input[name="customer.firstName"]', 'John');
     await page.fill('input[name="customer.lastName"]', 'Doe');
     await page.fill('input[name="customer.address.street"]', '123 Main St');
@@ -26,20 +27,80 @@ test.describe('Parabank Registration Tests', () => {
     await page.fill('input[name="customer.password"]', password);
     await page.fill('input[name="repeatedPassword"]', password);
 
-    // Submit the form
-    await page.screenshot({ path: 'screenshots/before_submission.png' });
+    // Submit the registration form
     await page.click('input[type="submit"]');
-    await page.screenshot({ path: 'screenshots/after_submission.png' });
 
-    // Debugging: Log page content
-    const pageContent = await page.content();
-    console.log(pageContent);
+    // Handle potential registration errors
+    if (await page.locator('h1:has-text("Error!")').isVisible()) {
+      throw new Error('Registration failed. Ensure form fields are valid.');
+    }
 
-    // Wait for the success message or redirection
-    await page.waitForURL('**/accountoverview.htm', { timeout: 15000 });
-    const successMessage = page.locator('p:has-text("Your account was created successfully.")');
-    await expect(successMessage).toBeVisible({ timeout: 10000 });
+    // Verify successful registration
+    await expect(page.locator('h1')).toHaveText(`Welcome ${uniqueUsername}`);
+  });
 
-    console.log(`Successfully registered with username: ${uniqueUsername}`);
+  test('2. Log in with the registered user', async ({ page }) => {
+    if (!uniqueUsername) throw new Error('Unique username not set. Ensure the registration test runs first.');
+
+    await page.goto(baseUrl);
+
+    // Log in with the unique username and password
+    await page.fill('input[name="username"]', uniqueUsername);
+    await page.fill('input[name="password"]', password);
+    await page.click('input[value="Log In"]');
+
+    // Verify successful login
+    await expect(page.locator('.smallText')).toContainText(`Welcome ${uniqueUsername}`);
+  });
+
+  test('3. Check account overview page', async ({ page }) => {
+    await page.goto(baseUrl);
+
+    // Log in with the unique username and password
+    await page.fill('input[name="username"]', uniqueUsername);
+    await page.fill('input[name="password"]', password);
+    await page.click('input[value="Log In"]');
+
+    // Navigate to Account Overview
+    await page.click('a:has-text("Accounts Overview")');
+
+    // Verify account overview is displayed
+    await expect(page.locator('h1')).toHaveText('Accounts Overview');
+  });
+
+  test('4. Transfer funds', async ({ page }) => {
+    await page.goto(baseUrl);
+
+    // Log in with the unique username and password
+    await page.fill('input[name="username"]', uniqueUsername);
+    await page.fill('input[name="password"]', password);
+    await page.click('input[value="Log In"]');
+
+    // Navigate to Transfer Funds page
+    await page.click('a:has-text("Transfer Funds")');
+
+    // Fill out transfer form
+    await page.fill('input[name="amount"]', '100');
+    await page.selectOption('select[name="fromAccountId"]', { index: 0 });
+    await page.selectOption('select[name="toAccountId"]', { index: 1 });
+    await page.click('input[value="Transfer"]');
+
+    // Verify transfer success message
+    await expect(page.locator('#rightPanel p')).toHaveText('Transfer Complete!');
+  });
+
+  test('5. Log out from Parabank', async ({ page }) => {
+    await page.goto(baseUrl);
+
+    // Log in with the unique username and password
+    await page.fill('input[name="username"]', uniqueUsername);
+    await page.fill('input[name="password"]', password);
+    await page.click('input[value="Log In"]');
+
+    // Log out
+    await page.click('a:has-text("Log Out")');
+
+    // Verify redirection to login page
+    await expect(page.locator('h2')).toHaveText('Customer Login');
   });
 });
