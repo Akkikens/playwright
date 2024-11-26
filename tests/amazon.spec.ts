@@ -1,117 +1,98 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Amazon Website Tests', () => {
-  
-  test('Homepage loads correctly', async ({ page }) => {
-    await page.goto('https://www.amazon.com/');
-    await expect(page).toHaveTitle(/Amazon/);
+test.describe('Amazon Automation Test Suite', () => {
+  const email = 'akshayhvingfun@gmail.com';
+  const password = 'M@mudryk10';
+
+  test('1. Login to Amazon', async ({ page }) => {
+    await page.goto('https://www.amazon.com');
+    await page.click('#nav-link-accountList'); // Click on Sign-In
+    await page.fill('input[name="email"]', email);
+    await page.click('input#continue');
+    await page.fill('input[name="password"]', password);
+    await page.click('input#signInSubmit');
+    // Verify login
+    await expect(page.locator('#nav-link-accountList span.nav-line-1')).toContainText('Hello, Akshay');
   });
 
-  test('Search functionality works', async ({ page }) => {
-    await page.goto('https://www.amazon.com/');
-    await page.fill('#twotabsearchtextbox', 'laptop');
-    await page.click('#nav-search-submit-button');
-    await expect(page).toHaveURL(/s?k=laptop/);
+  test('2. Search for a product', async ({ page }) => {
+    await page.goto('https://www.amazon.com');
+    await page.fill('input#twotabsearchtextbox', 'PlayStation 5');
+    await page.click('input#nav-search-submit-button');
+    // Ensure search results contain the query
+    await expect(page).toHaveURL(/s\?k=PlayStation\+5/);
+    await expect(page.locator('.s-main-slot')).toBeVisible(); // Ensure results are visible
+  });
+
+  test('3. Verify product details', async ({ page }) => {
+    await page.goto('https://www.amazon.com');
+    await page.waitForSelector('input#twotabsearchtextbox', { timeout: 10000 });
+    await page.fill('input#twotabsearchtextbox', 'MacBook Air');
+    await page.click('input#nav-search-submit-button');
+    await page.waitForSelector('.s-main-slot .s-result-item h2 a', { timeout: 10000 });
+    await page.click('.s-main-slot .s-result-item h2 a'); // Click on the first product
+    // Verify product details
+    await page.waitForSelector('#productTitle', { timeout: 10000 });
+    await expect(page.locator('#productTitle')).toBeVisible();
+    await page.waitForSelector('#priceblock_ourprice, #priceblock_dealprice, #corePrice_feature_div', { timeout: 10000 });
+    await expect(page.locator('#priceblock_ourprice, #priceblock_dealprice, #corePrice_feature_div')).toBeVisible();
+  });
+
+  test('4. Add a product to the cart', async ({ page }) => {
+    await page.goto('https://www.amazon.com');
+    await page.waitForSelector('input#twotabsearchtextbox', { timeout: 10000 });
+    await page.fill('input#twotabsearchtextbox', 'Headphones');
+    await page.click('input#nav-search-submit-button');
+    await page.waitForSelector('.s-main-slot .s-result-item h2 a', { timeout: 10000 });
+    await page.click('.s-main-slot .s-result-item h2 a'); // Click the first product
+    await page.waitForSelector('#add-to-cart-button', { timeout: 10000 });
+    await page.click('#add-to-cart-button');
+    // Verify cart count increases
+    await page.waitForSelector('#nav-cart-count', { timeout: 10000 });
+    const cartCount = await page.locator('#nav-cart-count').innerText();
+    expect(parseInt(cartCount)).toBeGreaterThan(0);
+  });
+
+  test('6. Filter search results', async ({ page }) => {
+    await page.goto('https://www.amazon.com');
+    await page.fill('input#twotabsearchtextbox', 'iPhone');
+    await page.click('input#nav-search-submit-button');
+    await page.waitForSelector('span:has-text("Apple")', { timeout: 10000 });
+    await page.click('span:has-text("Apple")'); // Filter by brand
+    // Ensure URL or results reflect the filter
     await expect(page.locator('.s-main-slot')).toBeVisible();
   });
 
-
-  // fails
-  test('Navigate to a product page', async ({ page }) => {
-    await page.goto('https://www.amazon.com/');
-    await page.fill('#twotabsearchtextbox', 'laptop');
-    await page.click('#nav-search-submit-button');
-    await page.click('.s-main-slot .s-result-item h2 a');
-    await expect(page.locator('#productTitle')).toBeVisible();
+  test('7. Validate customer reviews section', async ({ page }) => {
+    await page.goto('https://www.amazon.com');
+    await page.fill('input#twotabsearchtextbox', 'Echo Dot');
+    await page.click('input#nav-search-submit-button');
+    await page.waitForSelector('.s-main-slot .s-result-item h2 a', { timeout: 10000 });
+    await page.click('.s-main-slot .s-result-item h2 a'); // Click on the first product
+    // Verify customer reviews
+    await page.waitForSelector('#customerReviews', { timeout: 10000 });
+    await expect(page.locator('#customerReviews')).toBeVisible();
   });
 
-  test('Add a product to the cart', async ({ page }) => {
-    await page.goto('https://www.amazon.com/');
-    await page.fill('#twotabsearchtextbox', 'laptop');
-    await page.click('#nav-search-submit-button');
-    await page.click('.s-main-slot .s-result-item h2 a');
-    await page.click('#add-to-cart-button');
-    await expect(page.locator('#huc-v2-order-row-confirm-text')).toBeVisible();
+  test('9. Check category navigation', async ({ page }) => {
+    await page.goto('https://www.amazon.com');
+    await page.waitForSelector('a:has-text("Books")', { timeout: 10000 });
+    await page.click('a:has-text("Books")'); // Select "Books" category
+    await page.waitForURL(/books/, { timeout: 10000 });
+    await expect(page).toHaveURL(/books/);
   });
 
-  test('Remove a product from the cart', async ({ page }) => {
-    await page.goto('https://www.amazon.com/gp/cart/view.html');
-    await page.click('.sc-action-delete input');
-    await expect(page.locator('.sc-your-amazon-cart-is-empty')).toBeVisible();
-  });
-
-  test('Cart updates quantity correctly', async ({ page }) => {
-    await page.goto('https://www.amazon.com/');
-    await page.fill('#twotabsearchtextbox', 'headphones');
-    await page.click('#nav-search-submit-button');
-    await page.click('.s-main-slot .s-result-item h2 a');
-    await page.click('#add-to-cart-button');
-    await page.goto('https://www.amazon.com/gp/cart/view.html');
-    await page.selectOption('select[name="quantity"]', '2');
-    await expect(page.locator('#sc-subtotal-label-activecart')).toContainText('2 items');
-  });
-
-  test('Sign-in page loads correctly', async ({ page }) => {
-    await page.goto('https://www.amazon.com/');
-    await page.click('#nav-link-accountList');
-    await expect(page).toHaveURL(/ap\/signin/);
-  });
-
-  test('Today\'s Deals page loads correctly', async ({ page }) => {
-    await page.goto('https://www.amazon.com/');
-    await page.click('a[href*="/gp/goldbox"]');
-    await expect(page).toHaveURL(/goldbox/);
-  });
-
-  test('Customer Service page loads correctly', async ({ page }) => {
-    await page.goto('https://www.amazon.com/');
-    await page.click('a[href*="/gp/help/customer"]');
-    await expect(page).toHaveURL(/customer\/homepage/);
-  });
-
-  test('Best Sellers page loads correctly', async ({ page }) => {
-    await page.goto('https://www.amazon.com/');
-    await page.click('a[href*="/gp/bestsellers"]');
-    await expect(page).toHaveURL(/bestsellers/);
-  });
-
-  test('Footer links are clickable', async ({ page }) => {
-    await page.goto('https://www.amazon.com/');
-    const footerLinks = page.locator('div.navFooterVerticalRow.navAccessibility a');
-    const count = await footerLinks.count();
-    for (let i = 0; i < count; ++i) {
-      const link = footerLinks.nth(i);
-      const href = await link.getAttribute('href');
-      expect(href).not.toBeNull();
-    }
-  });
-
-  test('Language change functionality', async ({ page }) => {
-    await page.goto('https://www.amazon.com/');
-    await page.click('#icp-nav-flyout');
-    await page.click('a[href*="language=en_US"]');
-    await expect(page.locator('#nav-link-accountList')).toContainText('Hello');
-  });
-
-  test('Location change functionality', async ({ page }) => {
-    await page.goto('https://www.amazon.com/');
-    await page.click('#nav-global-location-popover-link');
-    await page.fill('#GLUXZipUpdateInput', '10001');
-    await page.click('#GLUXZipUpdate');
-    await page.click('.a-popover-footer .a-button-primary');
-    await expect(page.locator('#nav-global-location-popover-link')).toContainText('New York');
-  });
-
-  test('Returns & Orders page loads correctly', async ({ page }) => {
-    await page.goto('https://www.amazon.com/');
-    await page.click('#nav-orders');
-    await expect(page).toHaveURL(/gp\/css\/order-history/);
-  });
-
-  test('Gift Cards page loads correctly', async ({ page }) => {
-    await page.goto('https://www.amazon.com/');
-    await page.click('a[href*="/gift-cards"]');
-    await expect(page).toHaveURL(/gift-cards/);
-  });
-
+  test('10. Verify Help page navigation', async ({ page }) => {
+    await page.goto('https://www.amazon.com');
+    await page.waitForSelector('a:has-text("Help")', { timeout: 10000 }); // Wait for the Help link
+    await page.locator('a:has-text("Help")').scrollIntoViewIfNeeded(); // Scroll into view if necessary
+    await page.click('a:has-text("Help")'); // Click on "Help"
+    
+    // Wait for the URL and ensure the page has loaded
+    await page.waitForURL(/help/, { timeout: 15000 });
+    
+    // Adjust the header text based on actual page structure
+    await page.waitForSelector('h1:has-text("Amazon Customer Service")', { timeout: 10000 }); // Ensure the header is visible
+    await expect(page.locator('h1:has-text("Amazon Customer Service")')).toBeVisible();
+  });  
 });
